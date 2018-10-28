@@ -18,12 +18,12 @@ from pathlib import Path
 
 # settings
 home         = str(Path.home())
-cachefile    = home+'/GDrive/Apps/tasksync.json'
-quiverRoot   = home+'/GDrive/Apps/Quiver.qvlibrary'
-store        = home+'/.google/token-tasks.json'
-credentials  = home+'/.google/credentials.json'
-activelist   = 'Active'
-trash        = 'Trash.qvnotebook'
+cachefile    = home+'/GDrive/Apps/tasksync.json'        # Synchronization cache file
+quiverRoot   = home+'/GDrive/Apps/Quiver.qvlibrary'     # Quiver notebook path
+store        = home+'/.google/token-tasks.json'         # Google oauth credentials
+credentials  = home+'/.google/credentials.json'         # Google oauth credentials
+activelist   = 'Active'                                 # Google task list to create tasks in
+trash        = 'Trash.qvnotebook'                       # Quiver trash notebook to ignore
 
 # authenticate Google task API
 store = file.Storage(store)
