@@ -33,14 +33,12 @@ service = build('tasks', 'v1', http=creds.authorize(Http()))
 scpt = '''
   set out to ""
   tell application "Reminders"
-    set mylist to (get reminders in list "#INBOX#" whose completed is false)
+    set mylist to (every reminder in list "#INBOX#" whose completed is false)
     repeat with r in mylist
       set out to out & (name of r as string) & "|" & (due date of r as string) & "
 "
+      delete r
     end repeat
-    if (count of mylist) > 0 then
-      delete mylist
-    end if
   end tell
   return out
 '''.replace('#INBOX#', inbox)
@@ -48,9 +46,11 @@ scpt = '''
 # run apple script and capture output
 p = Popen(['osascript'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
 stdout, stderr = p.communicate(scpt.encode('utf-8'))
-if p.returncode != 0:
-  exit(1)
 out = stdout.decode('utf-8')
+if p.returncode != 0:
+  err = stderr.decode('utf-8')
+  print(p.returncode, out, err)
+  exit(1)
 tasks = []
 for line in out.splitlines():
   if '|' in line:
