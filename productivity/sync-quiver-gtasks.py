@@ -18,8 +18,8 @@ from pathlib import Path
 
 # settings
 home         = str(Path.home())
-cachefile    = home+'/GDrive/Apps/tasksync.json'        # Synchronization cache file
-quiverRoot   = home+'/GDrive/Apps/Quiver.qvlibrary'     # Quiver notebook path
+cachefile    = home+'/Dropbox/apps/tasksync.json'        # Synchronization cache file
+quiverRoot   = home+'/Dropbox/apps/Quiver.qvlibrary'     # Quiver notebook path
 store        = home+'/.google/token-tasks.json'         # Google oauth credentials
 credentials  = home+'/.google/credentials.json'         # Google oauth credentials
 activelist   = 'Active'                                 # Google task list to create tasks in
@@ -93,7 +93,7 @@ def remove_todo(tid, done):
     items = []
     for item in qtodo[file]:
       if 'id' in item and item['id'] == tid:
-        with open(file) as f:
+        with open(file, encoding='utf-8') as f:
           data = json.load(f)
         for cell in data['cells']:
           if cell['type'] == 'markdown':
@@ -113,7 +113,7 @@ def remove_todo(tid, done):
                   lines[i] = line
               i = i+1
             cell['data'] = '\n'.join(lines)
-        with open(file, 'w') as f:
+        with open(file, 'w', encoding='utf-8') as f:
           json.dump(data, f)
       else:
         items.append(item)
@@ -126,7 +126,7 @@ qtodo_cached = {}
 lastrun = 0
 if os.path.isfile(cachefile):
   lastrun = mtime = os.path.getmtime(cachefile)
-  with open(cachefile) as f:
+  with open(cachefile, encoding='utf-8') as f:
     qtodo_cached = json.load(f)
 
 # extract tasks from Quiver database
@@ -142,7 +142,7 @@ for root, subdirs, files in os.walk(quiverRoot):
         qtodo[filename] = qtodo_cached[filename]
         del qtodo_cached[filename]
     else:
-      with open(filename) as f:
+      with open(filename, encoding='utf-8') as f:
         data = json.load(f)
       t = []
       for cell in data['cells']:
@@ -214,5 +214,5 @@ for file in qtodo:
         task['id'] = tid
 
 # write synzhronization cache
-with open(cachefile, 'w') as f:
+with open(cachefile, 'w', encoding='utf-8') as f:
   json.dump(qtodo, f)

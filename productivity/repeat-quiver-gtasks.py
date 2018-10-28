@@ -17,7 +17,7 @@ from pathlib import Path
 
 # settings
 home         = str(Path.home())
-quiverRoot   = home+'/GDrive/Apps/Quiver.qvlibrary'     # Quiver notebook path
+quiverRoot   = home+'/Dropbox/apps/Quiver.qvlibrary'     # Quiver notebook path
 store        = home+'/.google/token-tasks.json'         # Google oauth credentials
 credentials  = home+'/.google/credentials.json'         # Google oauth credentials
 activelist   = 'Active'                                 # Google task list to copy task to
