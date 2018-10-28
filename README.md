@@ -1,2 +1,3 @@
-# utils
-Personal productivity utilities
+# Personal productivity utilities
+
+This repository is primarily for personal scripts. Many of these may be useful to others, and you're welcome to use them. However, they are not packaged for external use, so your mileage with them may vary...
