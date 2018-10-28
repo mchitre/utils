@@ -100,15 +100,15 @@ def remove_todo(tid, done):
             lines = cell['data'].splitlines()
             i = 0
             for line in lines:
-              if '@todo' in line and '@todo(' not in line:
-                title = re.match(r'^[\-\*]?(.*)@todo.*$', line.strip())[1].strip()
+              if re.search(r'\s@todo\s', line+' '):
+                title = re.match(r'^[\-\*]?(.*)\s@todo\s.*$', line.strip()+' ')[1].strip()
                 if re.match(r'^\[.\]', title):
                   title = title[3:].strip()
                 if title == item['title']:
                   if not done:
-                    line = line.replace('@todo', '@canceled')
+                    line = re.sub(r'\s@todo\s', ' @canceled ', line+' ').rstrip()
                   else:
-                    line = line.replace('@todo', '@done('+done+')')
+                    line = re.sub(r'\s@todo\s', ' @done('+done+') ', line+' ').rstrip()
                     line = line.replace('- [ ] ', '- [x] ')
                   lines[i] = line
               i = i+1
@@ -148,11 +148,11 @@ for root, subdirs, files in os.walk(quiverRoot):
       for cell in data['cells']:
         if cell['type'] == 'markdown':
           for line in cell['data'].splitlines():
-            if '@todo' in line and '@todo(' not in line:
-              title = re.match(r'^[\-\*]?(.*)@todo.*$', line.strip())[1].strip()
+            if re.search(r'\s@todo\s', line+' '):
+              title = re.match(r'^[\-\*]?(.*)\s@todo\s.*$', line.strip()+' ')[1].strip()
               if re.match(r'^\[.\]', title):
                 title = title[3:].strip()
-              due = re.search(r'@due\(([^\)]+)\)', line)
+              due = re.search(r'\s@due\(([^\)]+)\)', line)
               if due is not None:
                 due = due[1]
               task = { 'note': data['title'], 'title': title, 'due': due }
