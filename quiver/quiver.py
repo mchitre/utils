@@ -18,7 +18,7 @@
 # inheritted from the JSON cells in Quiver. All resources are copied into a
 # "resources" folder.
 
-import os, json, sys, re, shutil, pathlib
+import os, json, sys, re, shutil, pathlib, uuid, time
 
 # settings
 home         = str(pathlib.Path.home())
@@ -63,8 +63,8 @@ for root, subdirs, files in os.walk(quiverRoot):
   if trash in root:
     continue
   if 'meta.json' in files:
-    filename = os.path.join(root, 'meta.json')
-    with open(filename, encoding='utf-8') as f:
+    fname = os.path.join(root, 'meta.json')
+    with open(fname, encoding='utf-8') as f:
       data = json.load(f)
     if root.endswith('qvnotebook') and 'name' in data:
       notebook = data['name']
@@ -99,12 +99,15 @@ def rescopy(src, dst):
       shutil.copyfile(os.path.join(src, f), out)
 
 # json to md conversion
-def json2md(json, tags=[]):
+#   params: content.json (dictionary), meta.json (dictionary)
+#   returns: markdown string
+def quiver2md(json, tags={'tags': []}):
   s = '---\n'
   s += 'title: '+note['title']+'\n'
   s += 'uuid: '+note['uuid']+'\n'
-  s += 'notebook: '+note['notebook']+'('+note['notebook_uuid']+')\n'
-  s += 'tags: '+', '.join(tags)+'\n'
+  s += 'notebook: '+note['notebook']+' ('+note['notebook_uuid']+')\n'
+  s += 'tags: '+', '.join(meta['tags'])+'\n'
+  s += 'created: '+meta['created_at']
   s += '---\n\n'
   count = 0
   for cell in data['cells']:
@@ -134,14 +137,65 @@ def json2md(json, tags=[]):
   s += '\n'
   return s
 
+# check if a string is a yaml header
+def isyaml(s):
+  lines = s.split('\n')
+  for line in lines:
+    if len(line) > 0 and not re.match(r'^\w+:', line):
+      return False
+  return True
+
 # md to json conversion
-def md2json(md):
-  pass
+#   params: md (markdown string)
+#   returns: folder (string), meta.json (dictionary), content.json (dictionary)
+def md2quiver(md, ctime=time.time(), mtime=time.time()):
+  cells = md.split('---\n')
+  yaml = {
+    'title': '',
+    'uuid': str(uuid.uuid4()).upper(),
+    'notebook': 'Inbox (Inbox)',
+    'tags': [],
+    'created': ctime
+  }
+  if len(cells) > 2 and cells[0] == '' and isyaml(cells[1]):
+    for s in cells[1].split('\n'):
+      m = re.match(r'^(\w+): *(.*)$', s)
+      if m:
+        yaml[m[1]] = m[2]
+    cells = cells[2:]
+  nb = yaml['notebook']
+  m = re.match(r'^.*\((.*)\)$', nb)
+  if m:
+    nb = m[1]
+  fname = os.path.join(nb+'.qvnotebook', yaml['uuid']+'.qvnote')
+  meta = {
+    'title': yaml['title'],
+    'tags': yaml['tags'].split(r'\w*,\w*'),
+    'created_at': int(yaml['created']),
+    'updated_at': int(mtime),
+    'uuid': yaml['uuid']
+  }
+  content = {
+    'title': yaml['title'],
+    'cells': []
+  }
+  cells = [re.sub(r'\n$', '', re.sub(r'^\n', '', s)) for s in cells]
+  for cell in cells:
+    # TODO: support for other cell types
+    content['cells'].append({ 'type': 'markdown', 'data': cell })
+  return fname, meta, content
 
 # push handling
 if verb == 'push':
-  print('Not implemented yet')
-  exit(1)
+  ctime = os.path.getctime(filename)
+  mtime = os.path.getmtime(filename)
+  with open (filename, encoding='utf-8') as f:
+    md = f.readlines()
+  md = [s.rstrip() for s in md]
+  md = '\n'.join(md)
+  folder, meta, content = md2quiver(md, ctime, mtime)
+  # TODO: write to files
+  exit(0)
 
 # filter by notebook
 if nb_regex != '-':
@@ -167,14 +221,14 @@ if verb == 'pull':
     print('Too many matching notes')
     exit(2)
   note = notes[0]
-  filename = os.path.join(note['root'], 'meta.json')
-  with open(filename, encoding='utf-8') as f:
+  fname = os.path.join(note['root'], 'meta.json')
+  with open(fname, encoding='utf-8') as f:
     meta = json.load(f)
-  filename = os.path.join(note['root'], 'content.json')
-  with open(filename, encoding='utf-8') as f:
-    data = json.load(f)
+  fname = os.path.join(note['root'], 'content.json')
+  with open(fname, encoding='utf-8') as f:
+    content = json.load(f)
   print('Creating', note['uuid']+'.md')
   with open(note['uuid']+'.md', 'w') as f:
-    f.write(json2md(data, meta['tags']))
+    f.write(quiver2md(content, meta))
   rescopy(os.path.join(note['root'], 'resources'), resources)
   exit(0)
