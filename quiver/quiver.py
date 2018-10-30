@@ -24,7 +24,7 @@ import os, json, sys, re, shutil, pathlib, uuid, time
 home         = str(pathlib.Path.home())
 quiverRoot   = home+'/Dropbox/apps/Quiver.qvlibrary'     # Quiver notebook path
 trash        = 'Trash.qvnotebook'                        # Quiver trash notebook to ignore
-resources    = 'resources'                               # name or resource folder
+resourceDir  = 'resources'                               # name or resource folder
 
 # usage
 def usage():
@@ -55,29 +55,6 @@ else:
   if nargs > 3:
     note_regex = sys.argv[3]
 
-# get list of notes
-notebook = ''
-notebook_uuid = ''
-notes = []
-for root, subdirs, files in os.walk(quiverRoot):
-  if trash in root:
-    continue
-  if 'meta.json' in files:
-    fname = os.path.join(root, 'meta.json')
-    with open(fname, encoding='utf-8') as f:
-      data = json.load(f)
-    if root.endswith('qvnotebook') and 'name' in data:
-      notebook = data['name']
-      notebook_uuid = data['uuid']
-    elif root.endswith('qvnote') and 'title' in data:
-      notes.append({
-        'notebook': notebook,
-        'notebook_uuid': notebook_uuid,
-        'title': data['title'],
-        'uuid': data['uuid'],
-        'root': root
-      })
-
 # print list of notes
 def print_list(notes):
   if len(notes) == 0:
@@ -87,35 +64,36 @@ def print_list(notes):
       print(note['notebook'], '::', note['title'])
 
 # copy resources
-def rescopy(src, dst):
+def rescopy(src, dst, rlist=None):
   if os.path.isdir(src):
     try:
       os.mkdir(dst)
     except:
       pass
     for f in os.listdir(src):
-      out = os.path.join(dst, f)
-      print('Creating', out)
-      shutil.copyfile(os.path.join(src, f), out)
+      if rlist is None or f in rlist:
+        out = os.path.join(dst, f)
+        print('Copying', f)
+        shutil.copyfile(os.path.join(src, f), out)
 
 # json to md conversion
 #   params: content.json (dictionary), meta.json (dictionary)
 #   returns: markdown string
-def quiver2md(json, tags={'tags': []}):
+def quiver2md(content, meta={'tags': []}):
   s = '---\n'
   s += 'title: '+note['title']+'\n'
   s += 'uuid: '+note['uuid']+'\n'
   s += 'notebook: '+note['notebook']+' ('+note['notebook_uuid']+')\n'
   s += 'tags: '+', '.join(meta['tags'])+'\n'
-  s += 'created: '+meta['created_at']
+  s += 'created: '+str(meta['created_at'])+'\n'
   s += '---\n\n'
   count = 0
-  for cell in data['cells']:
+  for cell in content['cells']:
     if count > 0:
       s += '\n---\n\n'
     if cell['type'] == 'markdown':
       x = cell['data']
-      x = x.replace('](quiver-image-url/', ']('+resources+'/')
+      x = x.replace('](quiver-image-url/', ']('+resourceDir+'/')
       s += x+'\n'
     elif cell['type'] == 'code':
       s += '```\n'
@@ -130,7 +108,7 @@ def quiver2md(json, tags={'tags': []}):
       s += '>\n'
       x = cell['data']
       if cell['type'] == 'text':
-        x = x.replace('img src="quiver-image-url/', 'img src="'+resources+'/')
+        x = x.replace('img src="quiver-image-url/', 'img src="'+resourceDir+'/')
       s += x+'\n'
       s += '</div>\n'
     count += 1
@@ -147,14 +125,15 @@ def isyaml(s):
 
 # md to json conversion
 #   params: md (markdown string)
-#   returns: folder (string), meta.json (dictionary), content.json (dictionary)
-def md2quiver(md, ctime=time.time(), mtime=time.time()):
+#   returns: folder (string), meta.json (dictionary), content.json (dictionary), resources (list)
+def md2quiver(md, ctime=time.time(), mtime=time.time(), title=''):
+  resources = set()
   cells = md.split('---\n')
   yaml = {
-    'title': '',
+    'title': title,
     'uuid': str(uuid.uuid4()).upper(),
     'notebook': 'Inbox (Inbox)',
-    'tags': [],
+    'tags': '',
     'created': ctime
   }
   if len(cells) > 2 and cells[0] == '' and isyaml(cells[1]):
@@ -181,21 +160,81 @@ def md2quiver(md, ctime=time.time(), mtime=time.time()):
   }
   cells = [re.sub(r'\n$', '', re.sub(r'^\n', '', s)) for s in cells]
   for cell in cells:
-    # TODO: support for other cell types
-    content['cells'].append({ 'type': 'markdown', 'data': cell })
-  return fname, meta, content
+    s = cell.strip()
+    if s.startswith('```\n') and s.endswith('\n```'):
+      content['cells'].append({ 'type': 'code', 'data': cell[4:-4] })
+    elif s.startswith('<div') and s.endswith('</div>'):
+      cell = re.sub(r'^<div[^>]*>\s*', '', cell)
+      cell = re.sub(r'\s*</div>$', '', cell)
+      cell = cell.replace('img src="'+resourceDir+'/', 'img src="quiver-image-url/')
+      rlist = re.findall(r'img src="quiver-image-url/([^"]*)"', cell)
+      resources.update(rlist)
+      data = { 'data': cell }
+      m = re.match(r'^<div\s+([^>]*) *>', s)
+      s = m[1]
+      m = re.match(r'^\s*(\w+)\s*=\s*"([^"]*)"', s)
+      while m:
+        data[m[1]] = m[2]
+        s = s[len(m[0]):]
+        m = re.match(r'^\s*(\w+)\s*=\s*"([^"]*)"', s)
+      content['cells'].append(data)
+    else:
+      cell = cell.replace(']('+resourceDir+'/', '](quiver-image-url/')
+      rlist = re.findall(r'quiver-image-url/([^\)]*)\)', cell)
+      resources.update(rlist)
+      content['cells'].append({ 'type': 'markdown', 'data': cell })
+  return fname, meta, content, list(resources)
 
 # push handling
 if verb == 'push':
   ctime = os.path.getctime(filename)
   mtime = os.path.getmtime(filename)
-  with open (filename, encoding='utf-8') as f:
+  with open(filename, encoding='utf-8') as f:
     md = f.readlines()
   md = [s.rstrip() for s in md]
   md = '\n'.join(md)
-  folder, meta, content = md2quiver(md, ctime, mtime)
-  # TODO: write to files
+  _, fname = os.path.split(filename)
+  fname = re.sub(r'\.[^\.]*$', '', fname)
+  folder, meta, content, resources = md2quiver(md, ctime, mtime, fname)
+  try:
+    fname = os.path.join(quiverRoot, folder)
+    os.mkdir(fname)
+  except:
+    pass
+  fname = os.path.join(quiverRoot, folder, 'meta.json')
+  print('Writing', os.path.join(folder, 'meta.json'))
+  with open(fname, 'w', encoding='utf-8') as f:
+    f.write(json.dumps(meta, indent=2))
+  fname = os.path.join(quiverRoot, folder, 'content.json')
+  print('Writing', os.path.join(folder, 'content.json'))
+  with open(fname, 'w', encoding='utf-8') as f:
+    f.write(json.dumps(content, indent=2))
+  if len(resources) > 0:
+    rescopy(resourceDir, os.path.join(quiverRoot, folder, 'resources'), resources)
   exit(0)
+
+# get list of notes
+notebook = ''
+notebook_uuid = ''
+notes = []
+for root, subdirs, files in os.walk(quiverRoot):
+  if trash in root:
+    continue
+  if 'meta.json' in files:
+    fname = os.path.join(root, 'meta.json')
+    with open(fname, encoding='utf-8') as f:
+      data = json.load(f)
+    if root.endswith('qvnotebook') and 'name' in data:
+      notebook = data['name']
+      notebook_uuid = data['uuid']
+    elif root.endswith('qvnote') and 'title' in data:
+      notes.append({
+        'notebook': notebook,
+        'notebook_uuid': notebook_uuid,
+        'title': data['title'],
+        'uuid': data['uuid'],
+        'root': root
+      })
 
 # filter by notebook
 if nb_regex != '-':
@@ -227,8 +266,8 @@ if verb == 'pull':
   fname = os.path.join(note['root'], 'content.json')
   with open(fname, encoding='utf-8') as f:
     content = json.load(f)
-  print('Creating', note['uuid']+'.md')
+  print('Writing', note['uuid']+'.md')
   with open(note['uuid']+'.md', 'w') as f:
     f.write(quiver2md(content, meta))
-  rescopy(os.path.join(note['root'], 'resources'), resources)
+  rescopy(os.path.join(note['root'], 'resources'), resourceDir)
   exit(0)
