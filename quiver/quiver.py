@@ -138,7 +138,7 @@ def md2quiver(md, ctime=time.time(), mtime=time.time(), title=''):
     'title': title,
     'uuid': str(uuid.uuid4()).upper(),
     'notebook': 'Inbox (Inbox)',
-    'tags': '',
+    'tags': None,
     'created': ctime
   }
   if len(cells) > 2 and cells[0] == '' and isyaml(cells[1]):
@@ -154,7 +154,7 @@ def md2quiver(md, ctime=time.time(), mtime=time.time(), title=''):
   fname = os.path.join(nb+'.qvnotebook', yaml['uuid']+'.qvnote')
   meta = {
     'title': yaml['title'],
-    'tags': yaml['tags'].split(r'\w*,\w*'),
+    'tags': yaml['tags'].split(r'\w*,\w*') if yaml['tags'] else [],
     'created_at': int(yaml['created']),
     'updated_at': int(mtime),
     'uuid': yaml['uuid']
