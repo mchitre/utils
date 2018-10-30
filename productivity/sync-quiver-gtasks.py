@@ -18,8 +18,8 @@ from pathlib import Path
 
 # settings
 home         = str(Path.home())
-cachefile    = home+'/Dropbox/apps/tasksync.json'        # Synchronization cache file
-quiverRoot   = home+'/Dropbox/apps/Quiver.qvlibrary'     # Quiver notebook path
+quiverRoot   = home+'/Dropbox/apps/Quiver.qvlibrary'    # Quiver notebook path
+cachefile    = quiverRoot+'/tasksync.json'              # Synchronization cache file
 store        = home+'/.google/token-tasks.json'         # Google oauth credentials
 credentials  = home+'/.google/credentials.json'         # Google oauth credentials
 activelist   = 'Active'                                 # Google task list to create tasks in
