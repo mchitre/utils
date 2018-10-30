@@ -78,6 +78,66 @@ for root, subdirs, files in os.walk(quiverRoot):
         'root': root
       })
 
+# print list of notes
+def print_list(notes):
+  if len(notes) == 0:
+    print('No matching notes')
+  else:
+    for note in notes:
+      print(note['notebook'], '::', note['title'])
+
+# copy resources
+def rescopy(src, dst):
+  if os.path.isdir(src):
+    try:
+      os.mkdir(dst)
+    except:
+      pass
+    for f in os.listdir(src):
+      out = os.path.join(dst, f)
+      print('Creating', out)
+      shutil.copyfile(os.path.join(src, f), out)
+
+# json to md conversion
+def json2md(json, tags=[]):
+  s = '---\n'
+  s += 'title: '+note['title']+'\n'
+  s += 'uuid: '+note['uuid']+'\n'
+  s += 'notebook: '+note['notebook']+'('+note['notebook_uuid']+')\n'
+  s += 'tags: '+', '.join(tags)+'\n'
+  s += '---\n\n'
+  count = 0
+  for cell in data['cells']:
+    if count > 0:
+      s += '\n---\n\n'
+    if cell['type'] == 'markdown':
+      x = cell['data']
+      x = x.replace('](quiver-image-url/', ']('+resources+'/')
+      s += x+'\n'
+    elif cell['type'] == 'code':
+      s += '```\n'
+      s += cell['data']+'\n'
+      s += '```\n'
+    else:
+      hdr = dict(cell)
+      del hdr['data']
+      s += '<div'
+      for k in hdr.keys():
+        s += ' '+k+'="'+hdr[k]+'"'
+      s += '>\n'
+      x = cell['data']
+      if cell['type'] == 'text':
+        x = x.replace('img src="quiver-image-url/', 'img src="'+resources+'/')
+      s += x+'\n'
+      s += '</div>\n'
+    count += 1
+  s += '\n'
+  return s
+
+# md to json conversion
+def md2json(md):
+  pass
+
 # push handling
 if verb == 'push':
   print('Not implemented yet')
@@ -94,75 +154,27 @@ if note_regex != '-':
   notes = [n for n in notes if re.search(regex, n['title'])]
 
 # show notes
-if len(notes) == 0:
-  print('No matching notes')
-else:
-  if verb == 'list' or len(notes) > 1:
-    for note in notes:
-      print(note['notebook'], '::', note['title'])
 if verb == 'list':
+  print_list(notes)
   exit(0)
-if len(notes) != 1:
-  exit(2)
-
-# read the note
-note = notes[0]
-filename = os.path.join(note['root'], 'meta.json')
-with open(filename, encoding='utf-8') as f:
-  meta = json.load(f)
-filename = os.path.join(note['root'], 'content.json')
-with open(filename, encoding='utf-8') as f:
-  data = json.load(f)
 
 # pull handling
-print('Created', note['uuid']+'.md')
-with open(note['uuid']+'.md', 'w') as f:
-
-  # yaml block
-  f.write('---\n')
-  f.write('title: '+note['title']+'\n')
-  f.write('uuid: '+note['uuid']+'\n')
-  f.write('notebook: '+note['notebook']+'('+note['notebook_uuid']+')\n')
-  f.write('tags: '+', '.join(meta['tags'])+'\n')
-  f.write('---\n\n')
-
-  # export cells
-  count = 0
-  for cell in data['cells']:
-    if count > 0:
-      f.write('\n---\n\n')
-    if cell['type'] == 'markdown':
-      x = cell['data']
-      x = x.replace('](quiver-image-url/', ']('+resources+'/')
-      f.write(x+'\n')
-    elif cell['type'] == 'code':
-      f.write('```\n')
-      f.write(cell['data']+'\n')
-      f.write('```\n')
-    else:
-      hdr = dict(cell)
-      del hdr['data']
-      f.write('<div')
-      for k in hdr.keys():
-        f.write(' '+k+'="'+hdr[k]+'"')
-      f.write('>\n')
-      x = cell['data']
-      if cell['type'] == 'text':
-        x = x.replace('img src="quiver-image-url/', 'img src="'+resources+'/')
-      f.write(x+'\n')
-      f.write('</div>\n')
-    count = count + 1
-
-  # done
-  f.write('\n')
-
-# copy resources out
-src_resources = os.path.join(note['root'], 'resources')
-if os.path.isdir(src_resources):
-  try:
-    os.mkdir(resources)
-  except:
-    pass
-  for f in os.listdir(src_resources):
-    print('Created', f)
-    shutil.copyfile(os.path.join(src_resources, f), os.path.join(resources, f))
+if verb == 'pull':
+  if len(notes) < 1:
+    print('No matching notes')
+    exit(2)
+  elif len(notes) > 1:
+    print('Too many matching notes')
+    exit(2)
+  note = notes[0]
+  filename = os.path.join(note['root'], 'meta.json')
+  with open(filename, encoding='utf-8') as f:
+    meta = json.load(f)
+  filename = os.path.join(note['root'], 'content.json')
+  with open(filename, encoding='utf-8') as f:
+    data = json.load(f)
+  print('Creating', note['uuid']+'.md')
+  with open(note['uuid']+'.md', 'w') as f:
+    f.write(json2md(data, meta['tags']))
+  rescopy(os.path.join(note['root'], 'resources'), resources)
+  exit(0)
