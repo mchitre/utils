@@ -64,6 +64,7 @@ def print_list(notes):
       print(note['notebook'], '::', note['title'])
 
 # copy resources
+# if rlist is specified, only resources in rlist are copied, and optionally renamed while copying
 def rescopy(src, dst, rlist=None):
   if os.path.isdir(src):
     try:
@@ -72,8 +73,12 @@ def rescopy(src, dst, rlist=None):
       pass
     for f in os.listdir(src):
       if rlist is None or f in rlist:
-        out = os.path.join(dst, f)
-        print('Copying', f)
+        f1 = rlist[f] if rlist is not None else f
+        out = os.path.join(dst, f1)
+        if f == f1:
+          print('Copying', f)
+        else:
+          print('Copying', f, '=>', f1)
         shutil.copyfile(os.path.join(src, f), out)
 
 # json to md conversion
@@ -125,9 +130,9 @@ def isyaml(s):
 
 # md to json conversion
 #   params: md (markdown string)
-#   returns: folder (string), meta.json (dictionary), content.json (dictionary), resources (list)
+#   returns: folder (string), meta.json (dictionary), content.json (dictionary), resources (dictionary)
 def md2quiver(md, ctime=time.time(), mtime=time.time(), title=''):
-  resources = set()
+  resources = {}
   cells = md.split('---\n')
   yaml = {
     'title': title,
@@ -168,7 +173,8 @@ def md2quiver(md, ctime=time.time(), mtime=time.time(), title=''):
       cell = re.sub(r'\s*</div>$', '', cell)
       cell = cell.replace('img src="'+resourceDir+'/', 'img src="quiver-image-url/')
       rlist = re.findall(r'img src="quiver-image-url/([^"]*)"', cell)
-      resources.update(rlist)
+      for r in rlist:
+        resources[r] = r
       data = { 'data': cell }
       m = re.match(r'^<div\s+([^>]*) *>', s)
       s = m[1]
@@ -181,9 +187,10 @@ def md2quiver(md, ctime=time.time(), mtime=time.time(), title=''):
     else:
       cell = cell.replace(']('+resourceDir+'/', '](quiver-image-url/')
       rlist = re.findall(r'quiver-image-url/([^\)]*)\)', cell)
-      resources.update(rlist)
+      for r in rlist:
+        resources[r] = r
       content['cells'].append({ 'type': 'markdown', 'data': cell })
-  return fname, meta, content, list(resources)
+  return fname, meta, content, resources
 
 # push handling
 if verb == 'push':
