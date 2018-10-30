@@ -18,7 +18,8 @@
 # inheritted from the JSON cells in Quiver. All resources are copied into a
 # "resources" folder.
 
-import os, json, sys, re, shutil, pathlib, uuid, time
+import os, json, sys, re, shutil, pathlib, uuid, time, datetime, calendar, pytz
+import dateutil.parser
 
 # settings
 home         = str(pathlib.Path.home())
@@ -128,6 +129,18 @@ def isyaml(s):
       return False
   return True
 
+# convert various date formats to epoch time
+def epoch(s):
+  try:
+    return int(s)
+  except:
+    pass
+  try:
+    dts = dateutil.parser.parse(s)
+    return calendar.timegm(dts.astimezone(pytz.utc).timetuple())
+  except Exception as ex:
+    return 0
+
 # md to json conversion
 #   params: md (markdown string)
 #   returns: folder (string), meta.json (dictionary), content.json (dictionary), resources (dictionary)
@@ -155,7 +168,7 @@ def md2quiver(md, ctime=time.time(), mtime=time.time(), title=''):
   meta = {
     'title': yaml['title'],
     'tags': yaml['tags'].split(r'\w*,\w*') if yaml['tags'] else [],
-    'created_at': int(yaml['created']),
+    'created_at': epoch(yaml['created']),
     'updated_at': int(mtime),
     'uuid': yaml['uuid']
   }
