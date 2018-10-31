@@ -1,0 +1,1 @@
+{"actions":[{"pauseBeforeRunning":false,"pauseWithoutShowingParameters":false,"customTitle":"","class":"WorkflowActionRunScript","parameters":{"script":"#coding: utf-8\nimport editor\n\ns = editor.get_file_contents('\/EditorialBak\/quiverlib.txt', 'dropbox')\nwith open(editor.get_workflows_path()+'\/quiverlib.py', 'w') as f:\n\tf.write(s)\n"}}]}
