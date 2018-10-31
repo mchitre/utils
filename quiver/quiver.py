@@ -18,8 +18,8 @@
 # inheritted from the JSON cells in Quiver. All resources are copied into a
 # "resources" folder.
 
-import os, json, sys, re, shutil, pathlib, uuid, time, datetime, calendar, pytz
-import dateutil.parser
+import os, json, sys, re, pathlib
+from quiverlib import rescopy, quiver2md, md2quiver
 
 # settings
 home         = str(pathlib.Path.home())
@@ -64,147 +64,6 @@ def print_list(notes):
     for note in notes:
       print(note['notebook'], '::', note['title'])
 
-# copy resources
-# if rlist is specified, only resources in rlist are copied, and optionally renamed while copying
-def rescopy(src, dst, rlist=None):
-  if os.path.isdir(src):
-    try:
-      os.mkdir(dst)
-    except:
-      pass
-    for f in os.listdir(src):
-      if rlist is None or f in rlist:
-        f1 = rlist[f] if rlist is not None else f
-        out = os.path.join(dst, f1)
-        if f == f1:
-          print('Copying', f)
-        else:
-          print('Copying', f, '=>', f1)
-        shutil.copyfile(os.path.join(src, f), out)
-
-# json to md conversion
-#   params: content.json (dictionary), meta.json (dictionary)
-#   returns: markdown string
-def quiver2md(content, meta={'tags': []}):
-  s = '---\n'
-  s += 'title: '+note['title']+'\n'
-  s += 'uuid: '+note['uuid']+'\n'
-  s += 'notebook: '+note['notebook']+' ('+note['notebook_uuid']+')\n'
-  s += 'tags: '+', '.join(meta['tags'])+'\n'
-  s += 'created: '+str(meta['created_at'])+'\n'
-  s += '---\n\n'
-  count = 0
-  for cell in content['cells']:
-    if count > 0:
-      s += '\n---\n\n'
-    if cell['type'] == 'markdown':
-      x = cell['data']
-      x = x.replace('](quiver-image-url/', ']('+resourceDir+'/')
-      s += x+'\n'
-    elif cell['type'] == 'code':
-      s += '```\n'
-      s += cell['data']+'\n'
-      s += '```\n'
-    else:
-      hdr = dict(cell)
-      del hdr['data']
-      s += '<div'
-      for k in hdr.keys():
-        s += ' '+k+'="'+hdr[k]+'"'
-      s += '>\n'
-      x = cell['data']
-      if cell['type'] == 'text':
-        x = x.replace('img src="quiver-image-url/', 'img src="'+resourceDir+'/')
-      s += x+'\n'
-      s += '</div>\n'
-    count += 1
-  s += '\n'
-  return s
-
-# check if a string is a yaml header
-def isyaml(s):
-  lines = s.split('\n')
-  for line in lines:
-    if len(line) > 0 and not re.match(r'^\w+:', line):
-      return False
-  return True
-
-# convert various date formats to epoch time
-def epoch(s):
-  try:
-    return int(s)
-  except:
-    pass
-  try:
-    dts = dateutil.parser.parse(s)
-    return calendar.timegm(dts.astimezone(pytz.utc).timetuple())
-  except Exception as ex:
-    return 0
-
-# md to json conversion
-#   params: md (markdown string)
-#   returns: folder (string), meta.json (dictionary), content.json (dictionary), resources (dictionary)
-def md2quiver(md, ctime=time.time(), mtime=time.time(), title=''):
-  resources = {}
-  cells = md.split('---\n')
-  yaml = {
-    'title': title,
-    'uuid': str(uuid.uuid4()).upper(),
-    'notebook': 'Inbox (Inbox)',
-    'tags': None,
-    'created': ctime
-  }
-  if len(cells) > 2 and cells[0] == '' and isyaml(cells[1]):
-    for s in cells[1].split('\n'):
-      m = re.match(r'^(\w+): *(.*)$', s)
-      if m:
-        yaml[m[1]] = m[2]
-    cells = cells[2:]
-  nb = yaml['notebook']
-  m = re.match(r'^.*\((.*)\)$', nb)
-  if m:
-    nb = m[1]
-  fname = os.path.join(nb+'.qvnotebook', yaml['uuid']+'.qvnote')
-  meta = {
-    'title': yaml['title'],
-    'tags': yaml['tags'].split(r'\w*,\w*') if yaml['tags'] else [],
-    'created_at': epoch(yaml['created']),
-    'updated_at': int(mtime),
-    'uuid': yaml['uuid']
-  }
-  content = {
-    'title': yaml['title'],
-    'cells': []
-  }
-  cells = [re.sub(r'\n$', '', re.sub(r'^\n', '', s)) for s in cells]
-  for cell in cells:
-    s = cell.strip()
-    if s.startswith('```\n') and s.endswith('\n```'):
-      content['cells'].append({ 'type': 'code', 'data': cell[4:-4] })
-    elif s.startswith('<div') and s.endswith('</div>'):
-      cell = re.sub(r'^<div[^>]*>\s*', '', cell)
-      cell = re.sub(r'\s*</div>$', '', cell)
-      cell = cell.replace('img src="'+resourceDir+'/', 'img src="quiver-image-url/')
-      rlist = re.findall(r'img src="quiver-image-url/([^"]*)"', cell)
-      for r in rlist:
-        resources[r] = r
-      data = { 'data': cell }
-      m = re.match(r'^<div\s+([^>]*) *>', s)
-      s = m[1]
-      m = re.match(r'^\s*(\w+)\s*=\s*"([^"]*)"', s)
-      while m:
-        data[m[1]] = m[2]
-        s = s[len(m[0]):]
-        m = re.match(r'^\s*(\w+)\s*=\s*"([^"]*)"', s)
-      content['cells'].append(data)
-    else:
-      cell = cell.replace(']('+resourceDir+'/', '](quiver-image-url/')
-      rlist = re.findall(r'quiver-image-url/([^\)]*)\)', cell)
-      for r in rlist:
-        resources[r] = r
-      content['cells'].append({ 'type': 'markdown', 'data': cell })
-  return fname, meta, content, resources
-
 # push handling
 if verb == 'push':
   ctime = os.path.getctime(filename)
@@ -215,7 +74,7 @@ if verb == 'push':
   md = '\n'.join(md)
   _, fname = os.path.split(filename)
   fname = re.sub(r'\.[^\.]*$', '', fname)
-  folder, meta, content, resources = md2quiver(md, ctime, mtime, fname)
+  folder, meta, content, resources = md2quiver(md, ctime, mtime, fname, resourceDir)
   try:
     fname = os.path.join(quiverRoot, folder)
     os.mkdir(fname)
@@ -230,7 +89,13 @@ if verb == 'push':
   with open(fname, 'w', encoding='utf-8') as f:
     f.write(json.dumps(content, indent=2))
   if len(resources) > 0:
-    rescopy(resourceDir, os.path.join(quiverRoot, folder, 'resources'), resources)
+    copied = rescopy(resourceDir, os.path.join(quiverRoot, folder, 'resources'), resources)
+    for f in copied.keys():
+      f1 = copied[f]
+      if f == f1:
+        print('Copying', f)
+      else:
+        print('Copying', f, '=>', f1)
   exit(0)
 
 # get list of notes
@@ -288,6 +153,12 @@ if verb == 'pull':
     content = json.load(f)
   print('Writing', note['uuid']+'.md')
   with open(note['uuid']+'.md', 'w') as f:
-    f.write(quiver2md(content, meta))
-  rescopy(os.path.join(note['root'], 'resources'), resourceDir)
+    f.write(quiver2md(content, meta, note, resourceDir))
+  copied = rescopy(os.path.join(note['root'], 'resources'), resourceDir)
+  for f in copied.keys():
+    f1 = copied[f]
+    if f == f1:
+      print('Copying', f)
+    else:
+      print('Copying', f, '=>', f1)
   exit(0)
