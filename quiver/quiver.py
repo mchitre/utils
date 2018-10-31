@@ -18,8 +18,8 @@
 # inheritted from the JSON cells in Quiver. All resources are copied into a
 # "resources" folder.
 
-import os, json, sys, re, pathlib
-from quiverlib import rescopy, quiver2md, md2quiver
+import os, json, sys, re, pathlib, shutil
+from quiverlib import quiver2md, md2quiver
 
 # settings
 home         = str(pathlib.Path.home())
@@ -64,6 +64,24 @@ def print_list(notes):
     for note in notes:
       print(note['notebook'], '::', note['title'])
 
+# copy resources
+# if rlist is specified, only resources in rlist are copied, and optionally renamed while copying
+def rescopy(src, dst, rlist=None):
+  if os.path.isdir(src):
+    try:
+      os.mkdir(dst)
+    except:
+      pass
+    for f in os.listdir(src):
+      if rlist is None or f in rlist:
+        f1 = rlist[f] if rlist is not None else f
+        out = os.path.join(dst, f1)
+        if f == f1:
+          print('Copying', f)
+        else:
+          print('Copying', f, '=>', f1)
+        shutil.copyfile(os.path.join(src, f), out)
+
 # push handling
 if verb == 'push':
   ctime = os.path.getctime(filename)
@@ -89,13 +107,7 @@ if verb == 'push':
   with open(fname, 'w', encoding='utf-8') as f:
     f.write(json.dumps(content, indent=2))
   if len(resources) > 0:
-    copied = rescopy(resourceDir, os.path.join(quiverRoot, folder, 'resources'), resources)
-    for f in copied.keys():
-      f1 = copied[f]
-      if f == f1:
-        print('Copying', f)
-      else:
-        print('Copying', f, '=>', f1)
+    rescopy(resourceDir, os.path.join(quiverRoot, folder, 'resources'), resources)
   exit(0)
 
 # get list of notes
@@ -154,11 +166,5 @@ if verb == 'pull':
   print('Writing', note['uuid']+'.md')
   with open(note['uuid']+'.md', 'w') as f:
     f.write(quiver2md(content, meta, note, resourceDir))
-  copied = rescopy(os.path.join(note['root'], 'resources'), resourceDir)
-  for f in copied.keys():
-    f1 = copied[f]
-    if f == f1:
-      print('Copying', f)
-    else:
-      print('Copying', f, '=>', f1)
+  rescopy(os.path.join(note['root'], 'resources'), resourceDir)
   exit(0)

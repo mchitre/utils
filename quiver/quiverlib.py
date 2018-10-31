@@ -1,23 +1,5 @@
-import os, calendar, shutil, re, uuid, time, pytz
+import os, calendar, re, uuid, time, pytz
 import dateutil.parser
-
-# copy resources
-# if rlist is specified, only resources in rlist are copied, and optionally renamed while copying
-# returns a map between copied src and dst filenames
-def rescopy(src, dst, rlist=None, copyfile=shutil.copyfile):
-  rescopy = {}
-  if os.path.isdir(src):
-    try:
-      os.mkdir(dst)
-    except:
-      pass
-    for f in os.listdir(src):
-      if rlist is None or f in rlist:
-        f1 = rlist[f] if rlist is not None else f
-        out = os.path.join(dst, f1)
-        rescopy[f] = f1
-        copyfile(os.path.join(src, f), out)
-  return rescopy
 
 # json to md conversion
 #   params: content.json (dictionary), meta.json (dictionary)
@@ -77,7 +59,12 @@ def _epoch(s):
     dts = dateutil.parser.parse(s)
     return calendar.timegm(dts.astimezone(pytz.utc).timetuple())
   except Exception as ex:
-    return 0
+    pass
+  try:
+    return calendar.timegm(dts.timetuple())  # seems to be needed for Editorial on iPad
+  except Exception as ex:
+    pass
+  return 0
 
 # md to json conversion
 #   params: md (markdown string)
@@ -96,12 +83,12 @@ def md2quiver(md, ctime=time.time(), mtime=time.time(), title='', resourceDir='r
     for s in cells[1].split('\n'):
       m = re.match(r'^(\w+): *(.*)$', s)
       if m:
-        yaml[m[1]] = m[2]
+        yaml[m.group(1)] = m.group(2)
     cells = cells[2:]
   nb = yaml['notebook']
   m = re.match(r'^.*\((.*)\)$', nb)
   if m:
-    nb = m[1]
+    nb = m.group(1)
   fname = os.path.join(nb+'.qvnotebook', yaml['uuid']+'.qvnote')
   meta = {
     'title': yaml['title'],
@@ -128,11 +115,11 @@ def md2quiver(md, ctime=time.time(), mtime=time.time(), title='', resourceDir='r
         resources[r] = r
       data = { 'data': cell }
       m = re.match(r'^<div\s+([^>]*) *>', s)
-      s = m[1]
+      s = m.group(1)
       m = re.match(r'^\s*(\w+)\s*=\s*"([^"]*)"', s)
       while m:
-        data[m[1]] = m[2]
-        s = s[len(m[0]):]
+        data[m.group(1)] = m.group(2)
+        s = s[len(m.group(0)):]
         m = re.match(r'^\s*(\w+)\s*=\s*"([^"]*)"', s)
       content['cells'].append(data)
     else:
