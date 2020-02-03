@@ -17,10 +17,10 @@ from pathlib import Path
 
 # settings
 home         = str(Path.home())
-quiverRoot   = home+'/Dropbox/apps/Quiver.qvlibrary'     # Quiver notebook path
+quiverRoot   = home+'/Dropbox/apps/Quiver.qvlibrary'    # Quiver notebook path
 store        = home+'/.google/token-tasks.json'         # Google oauth credentials
 credentials  = home+'/.google/credentials.json'         # Google oauth credentials
-activelist   = 'Active'                                 # Google task list to copy task to
+inbox        = 'Inbox'                                  # default list for repeated tasks
 trash        = 'Trash.qvnotebook'                       # Quiver trash notebook to ignore
 
 # authenticate Google task API
@@ -33,7 +33,7 @@ service = build('tasks', 'v1', http=creds.authorize(Http()))
 
 # extract tasks from Quiver database
 tasks = []
-regex = re.compile(r'\b(\w+)\b\s*=\s*([\-\+]?\d+\.?\d*)')
+regex = re.compile(r'\b(\w+)\b\s*=\s*([\-\+\.0-9a-zA-Z]+)')
 today = datetime.datetime.combine(datetime.date.today(), datetime.datetime.min.time())
 for root, subdirs, files in os.walk(quiverRoot):
   if trash in root:
@@ -52,12 +52,14 @@ for root, subdirs, files in os.walk(quiverRoot):
             criteria = m[2].strip()
             due = None
             matches = True
+            tlist = inbox
             for m in regex.finditer(criteria):
-              try:
-                v = float(m[2])
-              except:
-                print('Bad value:', m[1]+'='+m[2])
-                v = 0
+              if m[1] != 'list':
+                try:
+                  v = float(m[2])
+                except:
+                  print('Bad value:', m[1]+'='+m[2])
+                  v = 0
               if m[1] == 'weekday':
                 if today.isoweekday() != v:
                   matches = False
@@ -69,17 +71,19 @@ for root, subdirs, files in os.walk(quiverRoot):
                   matches = False
               elif m[1] == 'due':
                 due = today + datetime.timedelta(days=v)
+              elif m[1] == 'list':
+                tlist = m[2]
               else:
                 print('Bad keyword:', m[1]+'='+m[2])
             if matches:
-              tasks.append((title, due))
+              tasks.append((title, due, tlist))
 
-# get Google active list id
+# get Google list ids
 results = service.tasklists().list().execute()
 items = results.get('items', [])
+lists = {}
 for item in items:
-  if item['title'] == activelist:
-    activelist = item['id']
+  lists[item['title']] = item['id']
 
 # create Google tasks
 for task in tasks:
@@ -91,7 +95,12 @@ for task in tasks:
   if task[1] is not None:
     body['due'] = task[1].astimezone(pytz.utc).isoformat('T')
   try:
-    service.tasks().insert(tasklist=activelist, body=body).execute()
+    if task[2] in lists:
+      tlist = lists[task[2]]
+    else:
+      print('Bad list:', task[2])
+      tlist = lists[inbox] if inbox in lists else list(lists.values())[0]
+    service.tasks().insert(tasklist=tlist, body=body).execute()
   except Exception as e:
     print(body)
     print(e)

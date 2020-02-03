@@ -19,7 +19,7 @@ home         = str(Path.home())
 store        = home+'/.google/token-tasks.json'   # Google oauth credentials
 credentials  = home+'/.google/credentials.json'   # Google oauth credentials
 inbox        = 'Inbox'                            # Apple Reminders list to copy from
-activelist   = 'Active'                           # Google task list to copy task to
+activelist   = 'Inbox'                            # Google task list to copy task to
 
 # authenticate Google task API
 store = file.Storage(store)
