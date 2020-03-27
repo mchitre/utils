@@ -22,7 +22,7 @@ quiverRoot   = home+'/Dropbox/apps/Quiver.qvlibrary'    # Quiver notebook path
 cachefile    = quiverRoot+'/tasksync.json'              # Synchronization cache file
 store        = home+'/.google/token-tasks.json'         # Google oauth credentials
 credentials  = home+'/.google/credentials.json'         # Google oauth credentials
-activelist   = 'Active'                                 # Google task list to create tasks in
+activelist   = 'Inbox'                                  # Google task list to create tasks in
 trash        = 'Trash.qvnotebook'                       # Quiver trash notebook to ignore
 
 # authenticate Google task API
