@@ -48,15 +48,22 @@ oiset = set()
 try:
   with open(folder+'/issues.txt', 'rt') as f:
     oiset = eval(f.read())
-except ex:
+except:
   pass
 
 # go through new issues and make tasks
 for i in iset.difference(oiset):
   issue = issues[i]
+  title = issue['title']
+  url = re.sub(r'\\n', '', issue['html_url'])
+  abbv = url.replace('https://github.com/', '').replace('/issues/', '#')
+  if '/pull/' in url:
+    title = 'PR: '+title
+    abbv = abbv.replace('/pull/', '#')
   task = {
-    'task': issue['title'],
-    'action': 'url:'+re.sub(r'\\n', '', issue['html_url']),
+    'task': title,
+    'action': 'url:'+url,
+    'note': abbv,
     'type': 0,
     'ignoreDefaults': 1,
     'edit': 0,
