@@ -1,8 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import json, re, sys
 
-FILE='/Users/mandar/Dropbox/apps/Quiver.qvlibrary/D7D4B4F5-01DF-4C64-960C-1003216F466B.qvnotebook/F4A197BD-6A2E-4E34-9094-1B5F596FCE9C.qvnote/content.json'
+FILE='/Users/mandar/GDrive/Apps/Quiver/Quiver.qvlibrary/D7D4B4F5-01DF-4C64-960C-1003216F466B.qvnotebook/F4A197BD-6A2E-4E34-9094-1B5F596FCE9C.qvnote/content.json'
 
 with open(FILE) as f:
   s = json.load(f)
