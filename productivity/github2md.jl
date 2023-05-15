@@ -86,7 +86,6 @@ function readmd(filename)
         inboxend == 0 && (inboxend = i)
       end
     elseif s == "---"
-      @show s, inboxstart, inboxend
       inboxstart > 0 && inboxend == 0 && (inboxend = i)
     end
     m = match(r"^ *\- \[.\] +\[([A-Za-z0-9\.\-_]+#\d+)\]\(https://github.com/.*\)", s)
@@ -150,5 +149,10 @@ end
 
 let filename = expanduser(TASKDOC)
   md = readmd(filename)
+  bakfile = joinpath(tempdir(), "github2md.bak")
+  @info "Backup: $bakfile"
+  open(bakfile, "w") do io
+    println.(Ref(io), md.lines)
+  end
   writemd(filename, issues, md)
 end
