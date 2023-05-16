@@ -81,6 +81,7 @@ function readmd(filename)
     elseif startswith(s, "## ")
       if lowercase(s) == "## inbox"
         inboxstart = i
+        inboxend = 0
       else
         inboxstart == 0 && (inboxstart = i - 1)
         inboxend == 0 && (inboxend = i)
