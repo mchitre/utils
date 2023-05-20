@@ -55,6 +55,7 @@ repo(issue) = issue["repository"]["name"]
 id(issue) = repo(issue) * "#" *  string(issue["number"])
 
 sort!(issues; by=repo)
+filter!(x -> !contains(x["html_url"], "/pull/"), issues)
 
 function issue2md(issue)
   url = issue["html_url"]
